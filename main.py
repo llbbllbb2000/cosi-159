@@ -44,13 +44,17 @@ def main():
 
     # model training
     trainer.train(train_loader=train_loader, epochs=args.epochs, lr=args.lr, save_dir="./save/")
+    # trainer.load_model("./save/mnist.pth")
 
     # model evaluation
-    trainer.eval(test_loader=test_loader)
+    print("\nFor the test set, the accuracy is {:.5f}".format(trainer.eval(test_loader=test_loader)))
 
     # model inference
-    sample = None  # complete the sample here
-    trainer.infer(sample=sample)
+    x, y = next(enumerate(train_loader))[1]
+    print(x.size(0))
+    for i in range(x.size(0)):
+        sample = x[i]  # complete the sample here
+        print("predict:{}, true:{}".format(trainer.infer(sample=sample), y[i].item()))
 
     return
 
