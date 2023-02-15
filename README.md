@@ -5,6 +5,5 @@ Code template on MNIST classification from 02/08 class
 
 To run the code
 
-'''
+~~~
 python main.py
-'''
