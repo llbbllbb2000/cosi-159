@@ -56,8 +56,6 @@ def main():
         sample = x[i]  # complete the sample here
         print("predict:{}, true:{}".format(trainer.infer(sample=sample), y[i].item()))
 
-    return
-
 
 if __name__ == "__main__":
     main()

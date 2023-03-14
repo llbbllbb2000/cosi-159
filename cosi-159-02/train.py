@@ -7,11 +7,11 @@ from torch.utils.data import DataLoader
 from torch import optim
 import torch.nn.functional as F
 
-import net_sphere
+import model
 
 
 class Trainer:
-    """ Trainer for MNIST classification """
+    """ Trainer for SphereFace """
 
     def __init__(self, model: nn.Module):
         self._model = model
@@ -26,7 +26,7 @@ class Trainer:
         """ Model training, TODO: consider adding model evaluation into the training loop """
 
         optimizer = optim.SGD(params=self._model.parameters(), lr=lr)
-        criterion = net_sphere.AngleLoss()
+        criterion = model.AngleLoss()
         train_loss = 0
         correct = 0
         total = 0
@@ -36,29 +36,39 @@ class Trainer:
         print("Start training...")
         for i in range(epochs):
             tik = time.time()
-            for data, target in train_loader:
+            cnt = 0
+            for data, labels in train_loader:
+                # print(data.shape)
+                # print(target)
+                # print()
                 optimizer.zero_grad()
                 outputs = self._model(data)
 
-                loss = criterion(outputs, target)
+                loss = criterion(outputs, labels)
                 loss.backward()
                 optimizer.step()
 
-                train_loss += loss.data[0]
-                outputs = outputs[0]
-                _, predicted = torch.max(outputs.data, 1)
-                total += target.size(0)
-                correct += predicted.eq(target.data).sum()
+                # print(loss)
+                # print(loss.data)
+                train_loss += loss.item()
+                _, predicted = torch.max(outputs[0], 1)
+                total += labels.size(0)
+                correct += (predicted == labels).sum().item()
 
+                cnt += 1
+                if cnt % 10 == 0 :
+                    print("Loss: %.4f; Acc: %.5f" % (train_loss/(batch_idx + 1), correct/total))
+
+            train_loss /= len(train_loader)
 
             elapse = time.time() - tik
-            print("Epoch: [%d/%d]; Time: %.2f; Loss: %.4f Acc: %.5f" 
-                  % (i + 1, epochs, elapse, train_loss/(batch_idx + 1), correct/total))
+            print("Epoch: [%d/%d]; Time: %.2f; Loss: %.4f; Acc: %.5f" 
+                  % (i + 1, epochs, elapse, train_loss, correct/total))
 
         print("Training completed, saving model to %s" % save_dir)
         if not os.path.exists(save_dir):
             os.makedirs(save_dir)
-        torch.save(self._model.state_dict(), os.path.join(save_dir, "model.pth"))
+        torch.save(self._model.state_dict(), os.path.join(save_dir, "sphereface_model.pth"))
 
     def eval(self, test_loader: DataLoader) -> float:
         """ Model evaluation, return the model accuracy over test set """
@@ -89,4 +99,3 @@ class Trainer:
     def load_model(self, path: str) -> None:
         """ load model from a .pth file """
         self._model.load_state_dict(torch.load(path))
-
