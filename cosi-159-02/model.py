@@ -3,7 +3,6 @@ import torch.nn as nn
 from torch.autograd import Variable
 import torch.nn.functional as F
 from torch.nn import Parameter
-import math
 
 def myphi(x,m):
     x = x * m
@@ -56,7 +55,6 @@ class AngleLinear(nn.Module):
         output = (cos_theta,phi_theta)
         return output # size=(B,Classnum,2)
 
-
 class AngleLoss(nn.Module):
     def __init__(self, gamma=0):
         super(AngleLoss, self).__init__()
@@ -91,41 +89,59 @@ class AngleLoss(nn.Module):
 
         return loss
 
+class SphereFace(nn.Module):
+    def __init__(self, num_classes=5749, feature_dim=512) : #, s=64.0, m=0.35):
+        super(SphereFace, self).__init__()
+        self.conv1 = nn.Conv2d(3, 64, kernel_size=3, stride=2, padding=1)
+        self.bn1 = nn.BatchNorm2d(64)
+        self.relu1 = nn.PReLU(64)
+        self.conv2 = nn.Conv2d(64, 128, kernel_size=3, stride=2, padding=1)
+        self.bn2 = nn.BatchNorm2d(128)
+        self.relu2 = nn.PReLU(128)
+        self.conv3 = nn.Conv2d(128, 256, kernel_size=3, stride=2, padding=1)
+        self.bn3 = nn.BatchNorm2d(256)
+        self.relu3 = nn.PReLU(256)
+        self.conv4 = nn.Conv2d(256, 512, kernel_size=3, stride=2, padding=1)
+        self.bn4 = nn.BatchNorm2d(512)
+        self.relu4 = nn.PReLU(512)
+        self.fc5 = nn.Linear(512*7*7, feature_dim)
+        self.bn5 = nn.BatchNorm1d(feature_dim)
+        self.fc6 = AngleLinear(feature_dim, num_classes)
+        # self.fc6 = nn.Linear(feature_dim, num_classes)
+        # self.s = s
+        # self.m = m
 
-class sphere4a(nn.Module):
-    def __init__(self,classnum=10574,feature=False):
-        super(sphere4a, self).__init__()
-        self.classnum = classnum
-        self.feature = feature
-        #input = B*3*112*96
-        self.conv1_1 = nn.Conv2d(3,64,3,2,1) #=>B*64*56*48
-        self.relu1_1 = nn.PReLU(64)
-
-        self.conv2_1 = nn.Conv2d(64,128,3,2,1) #=>B*128*28*24
-        self.relu2_1 = nn.PReLU(128)
-
-        self.conv3_1 = nn.Conv2d(128,256,3,2,1) #=>B*256*14*12
-        self.relu3_1 = nn.PReLU(256)
-
-        self.conv4_1 = nn.Conv2d(256,512,3,2,1) #=>B*512*7*6
-        self.relu4_1 = nn.PReLU(512)
-
-        self.fc5 = nn.Linear(512*7*6,512)
-        self.fc6 = AngleLinear(512,self.classnum)
-
-
-    def forward(self, x):
-        x = self.relu1_1(self.conv1_1(x))
-
-        x = self.relu2_1(self.conv2_1(x))
-
-        x = self.relu3_1(self.conv3_1(x))
-
-        x = self.relu4_1(self.conv4_1(x))
-
-        x = x.view(x.size(0),-1)
+    def forward(self, x, label=None):
+        x = self.conv1(x)
+        x = self.bn1(x)
+        x = self.relu1(x)
+        x = self.conv2(x)
+        x = self.bn2(x)
+        x = self.relu2(x)
+        x = self.conv3(x)
+        x = self.bn3(x)
+        x = self.relu3(x)
+        x = self.conv4(x)
+        x = self.bn4(x)
+        x = self.relu4(x)
+        x = x.view(x.size(0), -1)
         x = self.fc5(x)
-        if self.feature: return x
-
-        x = self.fc6(x)
-        return x
+        x = self.bn5(x)
+        if label is not None:
+            # # calculate the cosine similarity between x and weights
+            # weights = self.fc6.weight.data
+            # norm_weights = F.normalize(weights, p=2, dim=1)
+            # cos_theta = x.mm(norm_weights.t())
+            # cos_theta = cos_theta.clamp(-1, 1)
+            # # calculate the margin penalty
+            # cos_m_theta = self.s * torch.where(cos_theta > self.m, cos_theta - self.m, cos_theta)
+            # # calculate the final output
+            # one_hot = torch.zeros_like(cos_theta)
+            # one_hot.scatter_(1, label.view(-1, 1).long(), 1)
+            # output = (one_hot * cos_m_theta) + ((1 - one_hot) * cos_theta)
+            # output *= self.s
+            output = self.fc6(x)
+        else:
+            output = x
+            
+        return output
